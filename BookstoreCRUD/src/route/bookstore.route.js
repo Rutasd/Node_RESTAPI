@@ -4,6 +4,7 @@ const router = express.Router();
 const bookController = require('../controller/bookstore.controller');
 
 router.get('/:ISBN',bookController.retrieveBook);
+router.get('/isbn/:ISBN',bookController.retrieveBook);
 
 router.post('/',bookController.addBook);
 

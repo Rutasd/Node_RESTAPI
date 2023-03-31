@@ -1,72 +1,78 @@
+/**
+ * Ruta Deshpande
+ * Andrew id - rutasurd
+ * A1
+ * Customer endpoints
+ */
+
 var dbConn  = require('../../config/db.config');
 
+/**
+ * Retrieves a book from the system by ISBN and returns its data as a JSON response.
+ *
+ * req - The HTTP request object containing the ISBN of the book to retrieve.
+ * res - The HTTP response object that will contain the JSON response.
+ * endpoint - {baseurl}/books/isbn
+ * get request
+ */
 exports.retrieveBook = (req, res) => {
     const isbn = req.params.ISBN;
-  
-    // Check if the book exists in the system
     dbConn.query('SELECT * FROM books WHERE ISBN = ?', isbn, (err, result) => {
       if (err) {
         console.log('Error while retrieving book', err);
+         console.log(result)
         res.status(500).send('Internal Server Error');
-      } else if (result.length === 0) {
-        // Book not found
+      } else if (result.length == 0) {
+        console.log(result)
+        console.log('Book not found');
         res.status(404).json({ message: 'Book not found.' });
       } else {
-        // Book found
+        console.log(result)
         res.status(200).json(result[0]);
       }
     });
   };
   
-
   
-//   // Validate the price field
-//   const priceRegex = /^\d+(\.\d{1,2})?$/;
-//   if (!priceRegex.test(bookData.price)) {
-//     res.status(400).json({ message: 'Invalid price value. Price must be a valid number with 2 decimal places.' });
-//     return;
-//   }
-
-  
+/**
+ * Adds a book to the system with the specified information, if the ISBN is not already in use.
+ *
+ * req - The HTTP request object containing the book information to add.
+ * res - The HTTP response object that will contain the response message and/or data.
+ * endpoint - {baseurl}/books
+ * post request
+ */
   exports.addBook = (req, res) => {
-    //console.log(req);
-    const bookData = req.body;
-    const isbn = bookData.ISBN;
-     // Check if all required fields are present in the request body
-    if (!bookData.ISBN || !bookData.title || !bookData.Author || !bookData.description || !bookData.genre || !bookData.price || !bookData.quantity) {
-    res.status(400).json({ message: 'Missing required fields in the request body.' });
-    return;
+    const data = req.body;
+  
+    if (!data.ISBN || !data.title || !data.Author || !data.description || !data.genre || !data.price || !data.quantity) {
+      res.status(400).json({ message: 'Missing required fields' });
+      console.log('Inside required fields check for add');
+      return;
     }
-    // Check if the ISBN already exists in the system
-    dbConn.query('SELECT * FROM books WHERE ISBN = ?', isbn, (err, result) => {
+    dbConn.query('SELECT * FROM books WHERE ISBN = ?', data.ISBN, (err, result) => {
       if (err) {
         console.log('Error while adding book', err);
-        res.status(500).send('Internal Server Error');
       } else if (result.length > 0) {
-        // ISBN already exists in the system
         res.status(422).json({ message: 'This ISBN already exists in the system.' });
+        console.log('ISBN exists');
       } else {
-        
-        // Add the new book to the database
+        const priceRegex = /^\d+(\.\d{1,2})?$/;
+        if (!priceRegex.test(data.price)) {
+          res.status(400).json({ message: 'Invalid price format' });
+          console.log('Inside price format check for add');
+          return;
+        }
         dbConn.query(
-          'INSERT INTO books (ISBN, title, author, description, genre, price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [
-            bookData.ISBN,
-            bookData.title,
-            bookData.Author,
-            bookData.description,
-            bookData.genre,
-            bookData.price,
-            bookData.quantity,
-          ],
+          'INSERT INTO books (ISBN, title, Author, description, genre, price, quantity) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [data.ISBN, data.title, data.Author, data.description, data.genre, data.price, data.quantity,],
           (err, result) => {
             if (err) {
               console.log('Error while adding book', err);
-              res.status(500).send('Internal Server Error');
             } else {
               console.log('Book added successfully');
-              const newBookURL = `${req.protocol}://${req.get('host')}/books/${isbn}`;
-              res.set('Location', newBookURL).status(201).json(bookData);
+              const newBookURL = req.protocol + '://' + req.get('host') + '/books/' + data.ISBN;
+              res.set('Location', newBookURL).status(201).json(data);
             }
           }
         );
@@ -74,63 +80,51 @@ exports.retrieveBook = (req, res) => {
     });
   };
   
+/**
+ * Updates the book to the system with the specified information.
+ *
+ * req - The HTTP request object containing the book information to update.
+ * res - The HTTP response object that will contain the response message and/or data.
+ * endpoint - {baseurl}/books/isbn
+ * put request
+ */
   exports.updateBook = (req, res) => {
-    const bookData = req.body;
     const isbn = req.params.ISBN;
-    //console.log(bookData);
-    // Check if all required fields are present in the request body
-    if (!bookData.ISBN || !bookData.title || !bookData.author || !bookData.description || !bookData.genre || !bookData.price || !bookData.quantity) {
-      res.status(400).json({ message: 'Missing required fields in the request body.' });
+    const data = req.body;
+    if (!data.title || !data.Author || !data.description || !data.genre || !data.price || !data.quantity) {
+      res.status(400).json({ message: 'Missing required fields' });
+      console.log('Inside required fields check for update');
       return;
     }
-  
-    // Validate the price field
-    const price = parseFloat(bookData.price);
-    if (isNaN(price) || price <= 0 || Math.floor(price * 100) !== price * 100) {
-      res.status(400).json({ message: 'Invalid price value. Price must be a valid number with 2 decimal places.' });
-      return;
-    }
-  
-    // Check if the book exists in the system
     dbConn.query('SELECT * FROM books WHERE ISBN = ?', isbn, (err, result) => {
       if (err) {
         console.log('Error while updating book', err);
-        res.status(500).send('Internal Server Error');
       } else if (result.length === 0) {
-        // Book not found
-        res.status(404).json({ message: 'Book not found.' });
+        console.log('ISBN not found in update');
+        res.status(404).json({ message: 'ISBN not found' });
       } else {
-        // Update the book in the database
+        const priceRegex = /^\d+(\.\d{1,2})?$/;
+        if (!priceRegex.test(data.price)) {
+          res.status(400).json({ message: 'Invalid price format' });
+          console.log('Inside price format check for update');
+          return;
+        }
         dbConn.query(
-          'UPDATE books SET title = ?, author = ?, description = ?, genre = ?, price = ?, quantity = ? WHERE ISBN = ?',
-          [
-            bookData.title,
-            bookData.author,
-            bookData.description,
-            bookData.genre,
-            bookData.price,
-            bookData.quantity,
-            isbn,
-          ],
+          'UPDATE books SET title = ?, Author = ?, description = ?, genre = ?, price = ?, quantity = ? WHERE ISBN = ?',
+          [data.title, data.Author, data.description, data.genre, data.price, data.quantity, isbn, ],
           (err, result) => {
             if (err) {
               console.log('Error while updating book', err);
-              res.status(500).send('Internal Server Error');
             } else {
               console.log('Book updated successfully');
-              //const updatedBookURL = `${req.protocol}://${req.get('host')}/books/${isbn}`;
-              dbConn.query('SELECT * FROM books WHERE ISBN = ?', isbn, (err, result) => {
-                if (err) {
-                  console.log('Error while retrieving updated book', err);
-                  res.status(500).send('Internal Server Error');
-                } else {
-                  res.status(200).json(result[0]);
-                }
-              });
+              res.status(200).json({ ...data, ISBN: isbn });
             }
           }
         );
       }
     });
   };
+  
+
+
   
